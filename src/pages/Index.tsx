@@ -1,16 +1,33 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { AppProvider } from '@/contexts/AppContext';
+import AppLayout from '@/components/AppLayout';
+import DashboardPage from '@/pages/DashboardPage';
+import TeamPage from '@/pages/TeamPage';
+import ProjectsPage from '@/pages/ProjectsPage';
+import TasksPage from '@/pages/TasksPage';
+import UpdatesPage from '@/pages/UpdatesPage';
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
-  return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
-    </div>
-  );
+type Page = 'dashboard' | 'team' | 'projects' | 'tasks' | 'updates';
+
+const pages: Record<Page, React.ComponentType> = {
+  dashboard: DashboardPage,
+  team: TeamPage,
+  projects: ProjectsPage,
+  tasks: TasksPage,
+  updates: UpdatesPage,
 };
 
-const Index = PlaceholderIndex;
+const Index = () => {
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const PageComponent = pages[currentPage];
+
+  return (
+    <AppProvider>
+      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+        <PageComponent />
+      </AppLayout>
+    </AppProvider>
+  );
+};
 
 export default Index;
