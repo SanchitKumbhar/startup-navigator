@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Search, MessageSquare, Trash2, GripVertical, Calendar, Send } from 'lucide-react';
+import { Plus, Search, MessageSquare, Trash2, GripVertical, Calendar, Send, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TaskStatus, Task } from '@/lib/types';
 
@@ -23,7 +23,7 @@ const statusStyles: Record<TaskStatus, string> = {
 };
 
 export default function TasksPage() {
-  const { tasks, projects, teamMembers, getMember, addTask, updateTaskStatus, deleteTask, addTaskComment } = useApp();
+  const { tasks, projects, teamMembers, milestones, getMember, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment } = useApp();
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
   const [filterMember, setFilterMember] = useState('all');
   const [search, setSearch] = useState('');
@@ -32,6 +32,8 @@ export default function TasksPage() {
   const [commentText, setCommentText] = useState('');
   const [newTask, setNewTask] = useState({ title: '', description: '', assigneeId: '', projectId: '', milestoneId: '', dueDate: '', status: 'todo' as TaskStatus });
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', description: '', assigneeId: '', projectId: '', milestoneId: '', dueDate: '', status: 'todo' as TaskStatus });
 
   const filtered = tasks.filter(t => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false;
@@ -57,6 +59,25 @@ export default function TasksPage() {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('taskId');
     if (taskId) updateTaskStatus(taskId, status);
+  };
+
+  const openEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description,
+      assigneeId: task.assigneeId,
+      projectId: task.projectId,
+      milestoneId: task.milestoneId || '',
+      dueDate: task.dueDate,
+      status: task.status,
+    });
+  };
+
+  const handleEdit = () => {
+    if (!editingTask || !editForm.title) return;
+    updateTask(editingTask.id, editForm);
+    setEditingTask(null);
   };
 
   const columns: TaskStatus[] = ['todo', 'in-progress', 'done'];
@@ -111,6 +132,38 @@ export default function TasksPage() {
         </Dialog>
       </div>
 
+      {/* Edit Task Dialog */}
+      <Dialog open={!!editingTask} onOpenChange={open => !open && setEditingTask(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Input placeholder="Task title" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} />
+            <Textarea placeholder="Description" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.assigneeId} onChange={e => setEditForm({ ...editForm, assigneeId: e.target.value })}>
+                <option value="">Assign to...</option>
+                {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.projectId} onChange={e => setEditForm({ ...editForm, projectId: e.target.value })}>
+                <option value="">Project...</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.milestoneId} onChange={e => setEditForm({ ...editForm, milestoneId: e.target.value })}>
+                <option value="">Milestone...</option>
+                {milestones.filter(m => m.projectId === editForm.projectId).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value as TaskStatus })}>
+                {columns.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
+              </select>
+            </div>
+            <Input type="date" value={editForm.dueDate} onChange={e => setEditForm({ ...editForm, dueDate: e.target.value })} />
+            <Button onClick={handleEdit} className="w-full">Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Kanban View */}
       {viewMode === 'kanban' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -133,6 +186,7 @@ export default function TasksPage() {
                     key={task.id}
                     task={task}
                     onDelete={deleteTask}
+                    onEdit={() => openEdit(task)}
                     onComment={() => setCommentTask(commentTask === task.id ? null : task.id)}
                     showComments={commentTask === task.id}
                     commentText={commentText}
@@ -151,6 +205,7 @@ export default function TasksPage() {
               key={task.id}
               task={task}
               onDelete={deleteTask}
+              onEdit={() => openEdit(task)}
               onComment={() => setCommentTask(commentTask === task.id ? null : task.id)}
               showComments={commentTask === task.id}
               commentText={commentText}
@@ -168,6 +223,7 @@ export default function TasksPage() {
 interface TaskCardProps {
   task: Task;
   onDelete: (id: string) => void;
+  onEdit: () => void;
   onComment: () => void;
   showComments: boolean;
   commentText: string;
@@ -176,7 +232,7 @@ interface TaskCardProps {
   horizontal?: boolean;
 }
 
-function TaskCard({ task, onDelete, onComment, showComments, commentText, onCommentTextChange, onSubmitComment, horizontal }: TaskCardProps) {
+function TaskCard({ task, onDelete, onEdit, onComment, showComments, commentText, onCommentTextChange, onSubmitComment, horizontal }: TaskCardProps) {
   const { getMember } = useApp();
   const assignee = getMember(task.assigneeId);
   const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'done';
@@ -196,9 +252,14 @@ function TaskCard({ task, onDelete, onComment, showComments, commentText, onComm
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
             </div>
           </div>
-          <button onClick={() => onDelete(task.id)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={onEdit} className="text-muted-foreground hover:text-foreground transition-colors">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => onDelete(task.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import {
-  LayoutDashboard, Users, FolderKanban, CheckSquare, Megaphone, Bell, ChevronLeft, ChevronRight
+  LayoutDashboard, Users, FolderKanban, CheckSquare, Megaphone, Bell, ChevronLeft, ChevronRight, Moon, Sun, Menu, X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -26,14 +26,38 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
   const { notifications } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [dark, setDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark';
+    }
+    return false;
+  });
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  const handleNavigate = (page: Page) => {
+    onNavigate(page);
+    setMobileOpen(false);
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
       {/* Sidebar */}
       <aside className={cn(
-        "flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 shrink-0",
-        collapsed ? "w-16" : "w-60"
+        "flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 shrink-0 z-50",
+        collapsed ? "w-16" : "w-60",
+        "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:w-60",
+        mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full"
       )}>
         <div className="flex items-center gap-2 px-4 h-14 border-b border-sidebar-border">
           {!collapsed && (
@@ -42,13 +66,16 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
             </span>
           )}
           {collapsed && <span className="text-primary font-bold text-lg mx-auto">S</span>}
+          <button onClick={() => setMobileOpen(false)} className="ml-auto md:hidden text-sidebar-muted hover:text-sidebar-accent-foreground">
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 py-3 space-y-0.5 px-2">
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              onClick={() => handleNavigate(item.id)}
               className={cn(
                 "flex items-center gap-3 w-full rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 currentPage === item.id
@@ -62,18 +89,38 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           ))}
         </nav>
 
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center py-3 border-t border-sidebar-border text-sidebar-muted hover:text-sidebar-accent-foreground transition-colors"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
+        <div className="border-t border-sidebar-border">
+          {/* Dark mode toggle */}
+          <button
+            onClick={() => setDark(!dark)}
+            className={cn(
+              "flex items-center gap-3 w-full px-5 py-3 text-sm text-sidebar-muted hover:text-sidebar-accent-foreground transition-colors",
+              collapsed && "justify-center px-0"
+            )}
+          >
+            {dark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+            {!collapsed && <span>{dark ? 'Light Mode' : 'Dark Mode'}</span>}
+          </button>
+
+          {/* Collapse toggle (desktop only) */}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden md:flex items-center justify-center w-full py-3 border-t border-sidebar-border text-sidebar-muted hover:text-sidebar-accent-foreground transition-colors"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+        </div>
       </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between h-14 px-6 border-b border-border bg-card shrink-0">
-          <h1 className="text-lg font-semibold capitalize">{currentPage}</h1>
+        <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-border bg-card shrink-0">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-md hover:bg-secondary transition-colors">
+              <Menu className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <h1 className="text-lg font-semibold capitalize">{currentPage}</h1>
+          </div>
           <div className="relative">
             <button
               onClick={() => setShowNotifs(!showNotifs)}
@@ -88,14 +135,12 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
             </button>
 
             {showNotifs && (
-              <NotificationPanel
-                onClose={() => setShowNotifs(false)}
-              />
+              <NotificationPanel onClose={() => setShowNotifs(false)} />
             )}
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6">
           {children}
         </main>
       </div>

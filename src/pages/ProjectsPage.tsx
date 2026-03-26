@@ -6,20 +6,48 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Target } from 'lucide-react';
+import { Plus, Target, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+type MilestoneSort = 'due-asc' | 'due-desc' | 'progress-asc' | 'progress-desc';
 
 export default function ProjectsPage() {
   const { projects, milestones, tasks, getMember, addMilestone, updateMilestone } = useApp();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [newMs, setNewMs] = useState({ name: '', description: '', dueDate: '', projectId: '' });
+  const [milestoneSort, setMilestoneSort] = useState<MilestoneSort>('due-asc');
 
   const handleAddMilestone = () => {
     if (!newMs.name || !newMs.projectId) return;
     addMilestone({ ...newMs, completionPercentage: 0 });
     setNewMs({ name: '', description: '', dueDate: '', projectId: '' });
     setShowAddMilestone(false);
+  };
+
+  const sortMilestones = (list: typeof milestones) => {
+    return [...list].sort((a, b) => {
+      switch (milestoneSort) {
+        case 'due-asc': return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        case 'due-desc': return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+        case 'progress-asc': return a.completionPercentage - b.completionPercentage;
+        case 'progress-desc': return b.completionPercentage - a.completionPercentage;
+        default: return 0;
+      }
+    });
+  };
+
+  const cycleMilestoneSort = () => {
+    const order: MilestoneSort[] = ['due-asc', 'due-desc', 'progress-desc', 'progress-asc'];
+    const idx = order.indexOf(milestoneSort);
+    setMilestoneSort(order[(idx + 1) % order.length]);
+  };
+
+  const sortLabel: Record<MilestoneSort, string> = {
+    'due-asc': 'Due ↑',
+    'due-desc': 'Due ↓',
+    'progress-desc': 'Progress ↓',
+    'progress-asc': 'Progress ↑',
   };
 
   return (
@@ -55,7 +83,7 @@ export default function ProjectsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {projects.map(project => {
           const owner = getMember(project.ownerId);
-          const projectMilestones = milestones.filter(m => m.projectId === project.id);
+          const projectMilestones = sortMilestones(milestones.filter(m => m.projectId === project.id));
           const projectTasks = tasks.filter(t => t.projectId === project.id);
 
           return (
@@ -86,9 +114,18 @@ export default function ProjectsPage() {
                 </div>
 
                 {selectedProject === project.id && projectMilestones.length > 0 && (
-                  <div className="space-y-3 pt-3 border-t border-border">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Target className="h-4 w-4 text-primary" /> Milestones
+                  <div className="space-y-3 pt-3 border-t border-border" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Target className="h-4 w-4 text-primary" /> Milestones
+                      </div>
+                      <button
+                        onClick={cycleMilestoneSort}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ArrowUpDown className="h-3 w-3" />
+                        {sortLabel[milestoneSort]}
+                      </button>
                     </div>
                     {projectMilestones.map(ms => {
                       const linkedTasks = tasks.filter(t => t.milestoneId === ms.id);
