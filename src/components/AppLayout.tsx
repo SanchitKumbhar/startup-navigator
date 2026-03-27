@@ -62,10 +62,10 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
         <div className="flex items-center gap-2 px-4 h-14 border-b border-sidebar-border">
           {!collapsed && (
             <span className="font-bold text-lg text-sidebar-primary-foreground tracking-tight">
-              Startup<span className="text-primary">OS</span>
+              Wostup
             </span>
           )}
-          {collapsed && <span className="text-primary font-bold text-lg mx-auto">S</span>}
+          {collapsed && <span className="text-primary font-bold text-lg mx-auto">W</span>}
           <button onClick={() => setMobileOpen(false)} className="ml-auto md:hidden text-sidebar-muted hover:text-sidebar-accent-foreground">
             <X className="h-5 w-5" />
           </button>
