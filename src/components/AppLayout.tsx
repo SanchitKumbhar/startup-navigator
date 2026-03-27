@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import {
-  LayoutDashboard, Users, FolderKanban, CheckSquare, Megaphone, Bell, ChevronLeft, ChevronRight, Moon, Sun, Menu, X
+  LayoutDashboard, Users, FolderKanban, CheckSquare, Megaphone, Bell, ChevronLeft, ChevronRight, Moon, Sun, Menu, X, LogOut
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { clearAuth, getStoredUser } from '@/lib/authApi';
 
 type Page = 'dashboard' | 'team' | 'projects' | 'tasks' | 'updates';
 
@@ -24,9 +25,13 @@ const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
 
 export default function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
   const { notifications } = useApp();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userName, setUserName] = useState('Team Member');
+  const [userEmail, setUserEmail] = useState('');
   const [dark, setDark] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark';
@@ -40,10 +45,30 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
     localStorage.setItem('theme', dark ? 'dark' : 'light');
   }, [dark]);
 
+  useEffect(() => {
+    const user = getStoredUser();
+    if (user) {
+      setUserName(user.name || 'Team Member');
+      setUserEmail(user.email || '');
+    }
+  }, []);
+
   const handleNavigate = (page: Page) => {
     onNavigate(page);
     setMobileOpen(false);
   };
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate('/auth?mode=login');
+  };
+
+  const initials = userName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'U';
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -121,22 +146,51 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
             </button>
             <h1 className="text-lg font-semibold capitalize">{currentPage}</h1>
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifs(!showNotifs)}
-              className="relative p-2 rounded-md hover:bg-secondary transition-colors"
-            >
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowProfile(false);
+                  setShowNotifs(!showNotifs);
+                }}
+                className="relative p-2 rounded-md hover:bg-secondary transition-colors"
+              >
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {showNotifs && (
-              <NotificationPanel onClose={() => setShowNotifs(false)} />
-            )}
+              {showNotifs && (
+                <NotificationPanel onClose={() => setShowNotifs(false)} />
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotifs(false);
+                  setShowProfile(!showProfile);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
+                aria-label="Profile"
+                title="Profile"
+              >
+                {initials}
+              </button>
+
+              {showProfile && (
+                <ProfileMenu
+                  name={userName}
+                  email={userEmail}
+                  initials={initials}
+                  onLogout={handleLogout}
+                  onClose={() => setShowProfile(false)}
+                />
+              )}
+            </div>
           </div>
         </header>
 
@@ -178,6 +232,45 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+      </div>
+    </>
+  );
+}
+
+function ProfileMenu({
+  name,
+  email,
+  initials,
+  onLogout,
+  onClose,
+}: {
+  name: string;
+  email: string;
+  initials: string;
+  onLogout: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-lg animate-fade-in">
+        <div className="flex items-center gap-3 border-b border-border p-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{name}</p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4" />
+          Logout
+        </button>
       </div>
     </>
   );

@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated } from "@/lib/authApi";
 import AuthPage from "./pages/AuthPage.tsx";
 import HomeLandingPage from "./pages/HomeLandingPage.tsx";
 import Index from "./pages/Index.tsx";

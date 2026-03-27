@@ -1,17 +1,18 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, BadgeCheck, KeyRound, Mail } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, KeyRound, Mail, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { setAuthUser } from '@/lib/auth';
+import { register as apiRegister, login as apiLogin, setToken, setStoredUser } from '@/lib/authApi';
 
 type AuthMode = 'login' | 'register';
 
 export default function AuthPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
 
   const mode = useMemo<AuthMode>(() => {
     const value = searchParams.get('mode');
@@ -22,35 +23,52 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const submitLabel = mode === 'register' ? 'Create account' : 'Sign in';
 
   const switchMode = (next: AuthMode) => {
     setError('');
+    setInfo('');
     setSearchParams({ mode: next });
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    setInfo('');
+    setIsLoading(true);
 
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required.');
-      return;
+    try {
+      if (!email.trim() || !password.trim()) {
+        setError('Email and password are required.');
+        return;
+      }
+
+      if (mode === 'register' && password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+
+      if (mode === 'register') {
+        await apiRegister(email.trim(), password, confirmPassword);
+        setPassword('');
+        setConfirmPassword('');
+        setSearchParams({ mode: 'login' });
+        setInfo('Account created successfully. Please sign in.');
+        return;
+      } else {
+        const response = await apiLogin(email.trim(), password);
+        setToken(response.token);
+        setStoredUser(response.user);
+      }
+
+      navigate('/app');
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setIsLoading(false);
     }
-
-    if (mode === 'register' && password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    const finalName = email.split('@')[0] || 'Team Member';
-    setAuthUser({
-      name: finalName,
-      email: email.trim(),
-    });
-
-    navigate('/app');
   };
 
   return (
@@ -170,9 +188,13 @@ export default function AuthPage() {
                 </div>
               )}
 
+              {info && <p className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm text-success">{info}</p>}
               {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
 
-              <Button type="submit" className="h-9 w-full">{submitLabel}</Button>
+              <Button type="submit" className="h-9 w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitLabel}
+              </Button>
             </form>
 
             <p className="mt-2 text-[11px] text-muted-foreground">
@@ -211,13 +233,3 @@ function AuthFeature({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
