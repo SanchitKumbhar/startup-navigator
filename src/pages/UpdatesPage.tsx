@@ -34,7 +34,7 @@ export default function UpdatesPage() {
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Startup Updates</h2>
+        <h2 className="text-lg font-semibold">Wostup Updates</h2>
         <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1.5">
           <Plus className="h-4 w-4" /> New Update
         </Button>
