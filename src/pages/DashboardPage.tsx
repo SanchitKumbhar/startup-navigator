@@ -1,8 +1,7 @@
 import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, ListTodo, TrendingUp, Users, FolderKanban } from 'lucide-react';
+import { CheckCircle2, ListTodo, Users, FolderKanban, Target } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
 const STATUS_COLORS = {
@@ -28,6 +27,15 @@ export default function DashboardPage() {
 
   const overallProgress = tasks.length > 0
     ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100)
+    : 0;
+
+  const milestoneCompletion = milestones.map(m => ({
+    name: m.name.length > 14 ? `${m.name.slice(0, 14)}...` : m.name,
+    completion: m.completionPercentage,
+  }));
+
+  const avgMilestoneCompletion = milestones.length > 0
+    ? Math.round(milestones.reduce((sum, m) => sum + m.completionPercentage, 0) / milestones.length)
     : 0;
 
   return (
@@ -88,7 +96,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Team Performance + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="glass-card">
           <CardHeader><CardTitle className="text-base">Team Performance</CardTitle></CardHeader>
           <CardContent>
@@ -99,6 +107,29 @@ export default function DashboardPage() {
                 <Tooltip />
                 <Bar dataKey="completed" fill="hsl(162, 63%, 41%)" radius={[4, 4, 0, 0]} name="Completed" />
                 <Bar dataKey="total" fill="hsl(220, 14%, 85%)" radius={[4, 4, 0, 0]} name="Total" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" /> Milestone Completion
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Average completion rate</span>
+              <span className="font-semibold">{avgMilestoneCompletion}%</span>
+            </div>
+            <Progress value={avgMilestoneCompletion} className="h-2" />
+            <ResponsiveContainer width="100%" height={170}>
+              <BarChart data={milestoneCompletion}>
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                <Tooltip />
+                <Bar dataKey="completion" fill="hsl(210, 100%, 52%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

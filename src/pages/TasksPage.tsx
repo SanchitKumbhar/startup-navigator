@@ -22,14 +22,38 @@ const statusStyles: Record<TaskStatus, string> = {
   'done': 'status-done',
 };
 
+type DueFilter = 'all' | 'overdue' | 'today' | 'this-week';
+
+const startOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
+const isInCurrentWeek = (date: Date) => {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday));
+  const end = endOfDay(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6));
+  return date >= start && date <= end;
+};
+
 export default function TasksPage() {
-  const { tasks, projects, teamMembers, milestones, getMember, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment } = useApp();
+  const { tasks, projects, teamMembers, milestones, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment } = useApp();
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
   const [filterMember, setFilterMember] = useState('all');
+  const [filterDue, setFilterDue] = useState<DueFilter>('all');
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [commentTask, setCommentTask] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState('');
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [newTask, setNewTask] = useState({ title: '', description: '', assigneeId: '', projectId: '', milestoneId: '', dueDate: '', status: 'todo' as TaskStatus });
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -38,7 +62,21 @@ export default function TasksPage() {
   const filtered = tasks.filter(t => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false;
     if (filterMember !== 'all' && t.assigneeId !== filterMember) return false;
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    const dueDate = new Date(t.dueDate);
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    if (filterDue === 'overdue' && !(dueDate < todayStart && t.status !== 'done')) return false;
+    if (filterDue === 'today' && !(dueDate >= todayStart && dueDate <= todayEnd)) return false;
+    if (filterDue === 'this-week' && !isInCurrentWeek(dueDate)) return false;
+
+    if (search) {
+      const q = search.toLowerCase();
+      const assigneeName = teamMembers.find(m => m.id === t.assigneeId)?.name?.toLowerCase() || '';
+      const projectName = projects.find(p => p.id === t.projectId)?.name?.toLowerCase() || '';
+      const milestoneName = milestones.find(m => m.id === t.milestoneId)?.name?.toLowerCase() || '';
+      const haystack = `${t.title} ${t.description} ${assigneeName} ${projectName} ${milestoneName}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
     return true;
   });
 
@@ -50,9 +88,10 @@ export default function TasksPage() {
   };
 
   const handleComment = (taskId: string) => {
-    if (!commentText.trim()) return;
-    addTaskComment(taskId, { author: 'You', authorId: '1', content: commentText });
-    setCommentText('');
+    const draft = commentDrafts[taskId] || '';
+    if (!draft.trim()) return;
+    addTaskComment(taskId, { author: 'You', authorId: '1', content: draft });
+    setCommentDrafts(prev => ({ ...prev, [taskId]: '' }));
   };
 
   const handleDrop = (status: TaskStatus) => (e: React.DragEvent) => {
@@ -101,6 +140,13 @@ export default function TasksPage() {
           {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
 
+        <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={filterDue} onChange={e => setFilterDue(e.target.value as DueFilter)}>
+          <option value="all">All Deadlines</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due Today</option>
+          <option value="this-week">Due This Week</option>
+        </select>
+
         <div className="flex gap-1 border border-input rounded-md">
           <button onClick={() => setViewMode('kanban')} className={cn("px-3 py-1.5 text-sm rounded-l-md", viewMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>Kanban</button>
           <button onClick={() => setViewMode('list')} className={cn("px-3 py-1.5 text-sm rounded-r-md", viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>List</button>
@@ -120,11 +166,25 @@ export default function TasksPage() {
                   <option value="">Assign to...</option>
                   {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
-                <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={newTask.projectId} onChange={e => setNewTask({ ...newTask, projectId: e.target.value })}>
+                <select
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={newTask.projectId}
+                  onChange={e => setNewTask({ ...newTask, projectId: e.target.value, milestoneId: '' })}
+                >
                   <option value="">Project...</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
+              <select
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm w-full"
+                value={newTask.milestoneId}
+                onChange={e => setNewTask({ ...newTask, milestoneId: e.target.value })}
+              >
+                <option value="">Link to milestone...</option>
+                {milestones
+                  .filter(m => m.projectId === newTask.projectId)
+                  .map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
               <Input type="date" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
               <Button onClick={handleAdd} className="w-full">Create Task</Button>
             </div>
@@ -144,7 +204,11 @@ export default function TasksPage() {
                 <option value="">Assign to...</option>
                 {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
-              <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.projectId} onChange={e => setEditForm({ ...editForm, projectId: e.target.value })}>
+              <select
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editForm.projectId}
+                onChange={e => setEditForm({ ...editForm, projectId: e.target.value, milestoneId: '' })}
+              >
                 <option value="">Project...</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -185,12 +249,14 @@ export default function TasksPage() {
                   <TaskCard
                     key={task.id}
                     task={task}
+                    projectName={projects.find(p => p.id === task.projectId)?.name || 'Unassigned Project'}
+                    milestoneName={milestones.find(m => m.id === task.milestoneId)?.name}
                     onDelete={deleteTask}
                     onEdit={() => openEdit(task)}
                     onComment={() => setCommentTask(commentTask === task.id ? null : task.id)}
                     showComments={commentTask === task.id}
-                    commentText={commentText}
-                    onCommentTextChange={setCommentText}
+                    commentText={commentDrafts[task.id] || ''}
+                    onCommentTextChange={value => setCommentDrafts(prev => ({ ...prev, [task.id]: value }))}
                     onSubmitComment={() => handleComment(task.id)}
                   />
                 ))}
@@ -204,12 +270,14 @@ export default function TasksPage() {
             <TaskCard
               key={task.id}
               task={task}
+              projectName={projects.find(p => p.id === task.projectId)?.name || 'Unassigned Project'}
+              milestoneName={milestones.find(m => m.id === task.milestoneId)?.name}
               onDelete={deleteTask}
               onEdit={() => openEdit(task)}
               onComment={() => setCommentTask(commentTask === task.id ? null : task.id)}
               showComments={commentTask === task.id}
-              commentText={commentText}
-              onCommentTextChange={setCommentText}
+              commentText={commentDrafts[task.id] || ''}
+              onCommentTextChange={value => setCommentDrafts(prev => ({ ...prev, [task.id]: value }))}
               onSubmitComment={() => handleComment(task.id)}
               horizontal
             />
@@ -222,6 +290,8 @@ export default function TasksPage() {
 
 interface TaskCardProps {
   task: Task;
+  projectName: string;
+  milestoneName?: string;
   onDelete: (id: string) => void;
   onEdit: () => void;
   onComment: () => void;
@@ -232,7 +302,7 @@ interface TaskCardProps {
   horizontal?: boolean;
 }
 
-function TaskCard({ task, onDelete, onEdit, onComment, showComments, commentText, onCommentTextChange, onSubmitComment, horizontal }: TaskCardProps) {
+function TaskCard({ task, projectName, milestoneName, onDelete, onEdit, onComment, showComments, commentText, onCommentTextChange, onSubmitComment, horizontal }: TaskCardProps) {
   const { getMember } = useApp();
   const assignee = getMember(task.assigneeId);
   const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'done';
@@ -266,6 +336,8 @@ function TaskCard({ task, onDelete, onEdit, onComment, showComments, commentText
           <Badge className={cn("text-[10px]", statusStyles[task.status])}>
             {statusLabels[task.status]}
           </Badge>
+          <Badge variant="outline" className="text-[10px]">{projectName}</Badge>
+          {milestoneName && <Badge variant="outline" className="text-[10px]">{milestoneName}</Badge>}
           {isOverdue && <Badge className="status-overdue text-[10px]">Overdue</Badge>}
           <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
             <Calendar className="h-3 w-3" />

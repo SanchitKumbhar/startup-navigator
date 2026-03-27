@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import {
-  LayoutDashboard, Users, FolderKanban, CheckSquare, Megaphone, Bell, ChevronLeft, ChevronRight, Moon, Sun, Menu, X
+  LayoutDashboard, Users, FolderKanban, CheckSquare, Megaphone, Bell, ChevronLeft, ChevronRight, Moon, Sun, Menu, X, TrendingUp
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-type Page = 'dashboard' | 'team' | 'projects' | 'tasks' | 'updates';
+type Page = 'dashboard' | 'startup' | 'team' | 'projects' | 'tasks' | 'updates';
 
 interface AppLayoutProps {
   currentPage: Page;
@@ -16,6 +16,7 @@ interface AppLayoutProps {
 
 const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'startup', label: 'Startup Progress', icon: TrendingUp },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
