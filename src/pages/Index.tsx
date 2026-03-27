@@ -6,11 +6,13 @@ import TeamPage from '@/pages/TeamPage';
 import ProjectsPage from '@/pages/ProjectsPage';
 import TasksPage from '@/pages/TasksPage';
 import UpdatesPage from '@/pages/UpdatesPage';
+import StartupProgressPage from '@/pages/StartupProgressPage';
 
-type Page = 'dashboard' | 'team' | 'projects' | 'tasks' | 'updates';
+type Page = 'dashboard' | 'startup' | 'team' | 'projects' | 'tasks' | 'updates';
 
 const pages: Record<Page, React.ComponentType> = {
   dashboard: DashboardPage,
+  startup: StartupProgressPage,
   team: TeamPage,
   projects: ProjectsPage,
   tasks: TasksPage,

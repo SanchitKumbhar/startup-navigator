@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Target, ArrowUpDown } from 'lucide-react';
+import { Plus, Target, ArrowUpDown, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Milestone } from '@/lib/types';
 
 type MilestoneSort = 'due-asc' | 'due-desc' | 'progress-asc' | 'progress-desc';
 
@@ -17,6 +18,8 @@ export default function ProjectsPage() {
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [newMs, setNewMs] = useState({ name: '', description: '', dueDate: '', projectId: '' });
   const [milestoneSort, setMilestoneSort] = useState<MilestoneSort>('due-asc');
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
+  const [editMs, setEditMs] = useState({ name: '', description: '', dueDate: '', completionPercentage: 0 });
 
   const handleAddMilestone = () => {
     if (!newMs.name || !newMs.projectId) return;
@@ -50,8 +53,51 @@ export default function ProjectsPage() {
     'progress-asc': 'Progress ↑',
   };
 
+  const openMilestoneEdit = (milestone: Milestone) => {
+    setEditingMilestone(milestone);
+    setEditMs({
+      name: milestone.name,
+      description: milestone.description,
+      dueDate: milestone.dueDate,
+      completionPercentage: milestone.completionPercentage,
+    });
+  };
+
+  const handleSaveMilestone = () => {
+    if (!editingMilestone || !editMs.name.trim()) return;
+    updateMilestone(editingMilestone.id, editMs);
+    setEditingMilestone(null);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      <Dialog open={!!editingMilestone} onOpenChange={open => !open && setEditingMilestone(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Milestone</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Input placeholder="Milestone name" value={editMs.name} onChange={e => setEditMs({ ...editMs, name: e.target.value })} />
+            <Input placeholder="Description" value={editMs.description} onChange={e => setEditMs({ ...editMs, description: e.target.value })} />
+            <Input type="date" value={editMs.dueDate} onChange={e => setEditMs({ ...editMs, dueDate: e.target.value })} />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Completion</span>
+                <span className="font-medium">{editMs.completionPercentage}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={editMs.completionPercentage}
+                onChange={e => setEditMs({ ...editMs, completionPercentage: Number(e.target.value) })}
+                className="w-full"
+              />
+            </div>
+            <Button onClick={handleSaveMilestone} className="w-full">Save Milestone</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Active Projects</h2>
         <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
@@ -129,18 +175,43 @@ export default function ProjectsPage() {
                     </div>
                     {projectMilestones.map(ms => {
                       const linkedTasks = tasks.filter(t => t.milestoneId === ms.id);
+                      const milestoneIsOverdue = new Date(ms.dueDate) < new Date() && ms.completionPercentage < 100;
                       return (
                         <div key={ms.id} className="space-y-2 p-3 rounded-md bg-secondary/50">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">{ms.name}</span>
-                            <span className="text-muted-foreground">{ms.completionPercentage}%</span>
+                          <div className="flex justify-between items-start gap-2 text-sm">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium">{ms.name}</span>
+                                {ms.completionPercentage >= 100 && <Badge className="status-done text-[10px]">Completed</Badge>}
+                                {milestoneIsOverdue && <Badge className="status-overdue text-[10px]">Overdue</Badge>}
+                              </div>
+                              <p className="text-xs text-muted-foreground">{ms.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-muted-foreground">{ms.completionPercentage}%</span>
+                              <button
+                                onClick={() => openMilestoneEdit(ms)}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground">{ms.description}</p>
                           <Progress value={ms.completionPercentage} className="h-1.5" />
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Due: {new Date(ms.dueDate).toLocaleDateString()}</span>
                             <span>{linkedTasks.length} linked tasks</span>
                           </div>
+                          {linkedTasks.length > 0 && (
+                            <div className="pt-1 space-y-1">
+                              {linkedTasks.slice(0, 3).map(task => (
+                                <p key={task.id} className="text-xs text-muted-foreground line-clamp-1">• {task.title}</p>
+                              ))}
+                              {linkedTasks.length > 3 && (
+                                <p className="text-xs text-muted-foreground">+{linkedTasks.length - 3} more tasks</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

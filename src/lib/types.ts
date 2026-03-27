@@ -74,3 +74,19 @@ export interface Notification {
   read: boolean;
   type: 'task' | 'milestone' | 'comment';
 }
+
+export type StartupStage = 'idea' | 'mvp' | 'traction' | 'growth' | 'scale';
+
+export interface StartupMetric {
+  id: string;
+  name: string;
+  current: number;
+  target: number;
+  unit: string;
+}
+
+export interface StartupProgress {
+  stage: StartupStage;
+  weeklyFocus: string;
+  metrics: StartupMetric[];
+}

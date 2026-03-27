@@ -1,4 +1,4 @@
-import { TeamMember, Task, Project, Milestone, Update, ActivityItem, Notification } from './types';
+import { TeamMember, Task, Project, Milestone, Update, ActivityItem, Notification, StartupProgress } from './types';
 
 export const demoTeamMembers: TeamMember[] = [
   { id: '1', name: 'Alex Chen', role: 'Product Lead', email: 'alex@startup.io', avatar: 'AC', skills: ['Product Strategy', 'UX Design', 'Figma'], tasksCompleted: 14 },
@@ -57,3 +57,14 @@ export const demoNotifications: Notification[] = [
   { id: 'n3', message: 'Alex Chen commented on your task', timestamp: '2026-03-24T10:00:00Z', read: true, type: 'comment' },
   { id: 'n4', message: 'Sprint 4 has started', timestamp: '2026-03-25T09:00:00Z', read: false, type: 'task' },
 ];
+
+export const demoStartupProgress: StartupProgress = {
+  stage: 'traction',
+  weeklyFocus: 'Improve onboarding conversion and increase activated users.',
+  metrics: [
+    { id: 'sm1', name: 'MRR', current: 8200, target: 12000, unit: '$' },
+    { id: 'sm2', name: 'Active Users', current: 740, target: 1000, unit: '' },
+    { id: 'sm3', name: 'Activation Rate', current: 41, target: 55, unit: '%' },
+    { id: 'sm4', name: 'Monthly Churn', current: 6.2, target: 4, unit: '%' },
+  ],
+};
