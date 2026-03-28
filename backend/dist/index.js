@@ -8,6 +8,8 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const authMiddleware_1 = require("./middleware/authMiddleware");
 const jwt_1 = require("./auth/jwt");
+const mongo_1 = require("./db/mongo");
+const schemaSetup_1 = require("./db/schemaSetup");
 const userService_1 = require("./auth/userService");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -74,7 +76,7 @@ app.post("/auth/login", async (req, res) => {
             return;
         }
         // Find user
-        const user = (0, userService_1.getUserByEmail)(email);
+        const user = await (0, userService_1.getUserByEmail)(email);
         if (!user) {
             res.status(401).json({ error: "Invalid email or password" });
             return;
@@ -105,13 +107,13 @@ app.post("/auth/login", async (req, res) => {
     }
 });
 // Protected route - get current user
-app.get("/auth/me", authMiddleware_1.authMiddleware, (req, res) => {
+app.get("/auth/me", authMiddleware_1.authMiddleware, async (req, res) => {
     try {
         if (!req.auth) {
             res.status(401).json({ error: "Not authenticated" });
             return;
         }
-        const user = (0, userService_1.getUserById)(req.auth.userId);
+        const user = await (0, userService_1.getUserById)(req.auth.userId);
         if (!user) {
             res.status(404).json({ error: "User not found" });
             return;
@@ -126,6 +128,17 @@ app.get("/auth/me", authMiddleware_1.authMiddleware, (req, res) => {
         res.status(500).json({ error: "Failed to fetch user" });
     }
 });
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+async function startServer() {
+    try {
+        await (0, mongo_1.connectToMongo)();
+        await (0, schemaSetup_1.ensureMongoSchema)();
+        app.listen(PORT, () => {
+            console.log(`🚀 Server running on port ${PORT}`);
+        });
+    }
+    catch (error) {
+        console.error("Failed to start server", error);
+        process.exit(1);
+    }
+}
+void startServer();

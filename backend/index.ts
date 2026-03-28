@@ -3,6 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { authMiddleware, AuthRequest } from "./middleware/authMiddleware";
 import { generateToken } from "./auth/jwt";
+import { connectToMongo } from "./db/mongo";
+import { ensureMongoSchema } from "./db/schemaSetup";
 import { createUser, getUserByEmail, comparePassword, getUserById } from "./auth/userService";
 import { RegisterRequest, LoginRequest, AuthResponse } from "./auth/types";
 
@@ -84,7 +86,7 @@ app.post("/auth/login", async (req: Request, res: Response) => {
     }
 
     // Find user
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     if (!user) {
       res.status(401).json({ error: "Invalid email or password" });
       return;
@@ -119,14 +121,14 @@ app.post("/auth/login", async (req: Request, res: Response) => {
 });
 
 // Protected route - get current user
-app.get("/auth/me", authMiddleware, (req: AuthRequest, res: Response) => {
+app.get("/auth/me", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.auth) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
 
-    const user = getUserById(req.auth.userId);
+    const user = await getUserById(req.auth.userId);
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -142,6 +144,18 @@ app.get("/auth/me", authMiddleware, (req: AuthRequest, res: Response) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await connectToMongo();
+    await ensureMongoSchema();
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server", error);
+    process.exit(1);
+  }
+}
+
+void startServer();
